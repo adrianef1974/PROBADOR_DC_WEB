@@ -742,7 +742,7 @@ function dibujarGrafico(id,datos,maximo,color,unidad,referencia){
 // SENSORES NI ACCIONA EL PWM FISICO.
 // ==========================================
 
-let tensionActual=0,corrienteActual=0;
+let tensionActual=0,corrienteActual=0,corrientePico=0;
 let pruebaIniciada=false;
 let etapaPrueba='ESPERANDO';
 let inicioEtapa=0,inicioPrueba=0;
@@ -799,7 +799,7 @@ function finalizarPrueba(){
   h.push({
    numero:h.length+1,
    tension:tensionCarga.toFixed(2),
-   corriente:corrienteActual.toFixed(3),
+   corriente:corrientePico.toFixed(3),
    resultado:cortePorCorriente?'CORTE CORRIENTE':'FINALIZADA'
   });
   localStorage.setItem('historialDC',JSON.stringify(h));
@@ -827,6 +827,7 @@ function actualizar(){
    }
    pwmActual=Math.min(maxPWM,pwmObjetivo);
    corrienteActual=(pwmActual/100)*(maxCorriente!==null && maxCorriente>0?maxCorriente*1.15:1.0);
+   corrientePico=Math.max(corrientePico,corrienteActual);
    tensionActual=Math.max(0,12-(pwmActual/100)*1.2);
    tensionCarga=tensionActual;
    actualizarEstado('TENSION EN CARGA - PWM '+pwmActual.toFixed(1)+' %'+(cortePorCorriente?' - LIMITE DE CORRIENTE ALCANZADO':''));
