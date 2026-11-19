@@ -1,0 +1,91 @@
+PROBADOR DC - MAPA DE GPIO PARA PCB
+Placa: ESP32 DevKit V1 - ESP32-WROOM-32 (30 pines)
+
+1. PANTALLA SSD1307 + ADS1115 (BUS I2C COMPARTIDO)
+GPIO21 - SDA
+GPIO22 - SCL
+
+Pantalla SSD1307: I2C, 128 x 64
+ADS1115: direccion I2C prevista 0x48 (pendiente de verificar)
+
+2. ENTRADAS ADS1115
+A0 - Medicion de tension de fuente mediante divisor resistivo
+     Valores del divisor pendientes de calcular en la prueba final.
+A1 - Reserva
+A2 - Medicion del shunt, extremo hacia SOURCE del MOSFET
+A3 - Medicion del shunt, extremo hacia GND
+Shunt: 0,1 ohm / 10 W, conectado entre SOURCE del MOSFET y GND.
+La medicion del shunt debe cablearse preferentemente con conexion Kelvin.
+
+3. ETAPA DE POTENCIA - TOTEM POLE
+GPIO32 - Control de la etapa totem pole
+LOW  = ETAPA ACTIVADA
+HIGH = ETAPA DESACTIVADA
+Estado seguro al arrancar, detener o ante fallo: HIGH (desactivada).
+IMPORTANTE: no invertir esta polaridad.
+
+4. PULSADORES FISICOS
+Todos conectados entre el GPIO correspondiente y GND.
+Configuracion de entradas: INPUT_PULLUP.
+Activo cuando el pin esta en LOW.
+
+GPIO13 - ARRIBA
+GPIO14 - ABAJO
+GPIO16 - IZQUIERDA
+GPIO17 - DERECHA
+GPIO25 - ENTER
+GPIO26 - STOP
+GPIO27 - START
+
+5. MODULO microSD UNIBOT - BUS SPI
+GPIO4  - CS
+GPIO18 - SCK
+GPIO19 - MISO
+GPIO23 - MOSI
+
+El pin CS se mantiene en HIGH cuando la tarjeta no esta seleccionada.
+Verificar la alimentacion admitida por el modulo microSD concreto antes de conectarlo.
+No asumir que el modulo admite 5 V: revisar serigrafia o documentacion.
+
+6. GPIO DE RESERVA
+GPIO5  - RESERVA 1
+GPIO33 - RESERVA 2
+
+7. GPIO A EVITAR / PRECAUCIONES
+GPIO6 a GPIO11 - No utilizar; estan asociados a la memoria flash.
+GPIO0, GPIO2, GPIO12 y GPIO15 - Preferentemente evitar por ser pines de configuracion de arranque (strapping).
+GPIO34 a GPIO39 - Solo entradas y sin pull-ups/pull-downs internos.
+
+8. RESUMEN PARA PCB
+I2C:
+  SDA = GPIO21
+  SCL = GPIO22
+
+SPI microSD:
+  CS   = GPIO4
+  SCK  = GPIO18
+  MISO = GPIO19
+  MOSI = GPIO23
+
+Totem pole:
+  CONTROL = GPIO32 (LOW activa / HIGH desactiva)
+
+Pulsadores:
+  ARRIBA    = GPIO13
+  ABAJO     = GPIO14
+  IZQUIERDA = GPIO16
+  DERECHA   = GPIO17
+  ENTER     = GPIO25
+  STOP      = GPIO26
+  START     = GPIO27
+
+Reservas:
+  GPIO5 y GPIO33
+
+NOTAS IMPORTANTES
+- Este documento refleja las asignaciones acordadas para el proyecto PROBADOR DC.
+- La direccion 0x48 del ADS1115 aun debe confirmarse en el montaje.
+- Los valores del divisor resistivo de tension aun no estan definidos.
+- Confirmar la alimentacion y niveles logicos del modulo microSD antes de fabricar/conectar.
+- No se debe cambiar la polaridad definida para GPIO32.
+- El mapa de GPIO no implica que las mediciones reales o el firmware completo ya esten implementados o probados.
