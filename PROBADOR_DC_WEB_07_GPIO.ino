@@ -806,188 +806,35 @@ function dibujarGrafico(id,datos,maximo,color,unidad,referencia){
 }
 
 // ==========================================
-// SIMULACION DE LA SECUENCIA DE PRUEBA
-// NOTA: ESTA VERSION WEB TODAVIA NO LEE
-// SENSORES NI ACCIONA EL PWM FISICO.
-// ==========================================
-
-let tensionActual=0,corrienteActual=0,corrientePico=0;
-let pruebaIniciada=false;
-let etapaPrueba='ESPERANDO';
-let inicioEtapa=0,inicioPrueba=0;
-let pwmActual=0;
-let tensionInicial=0,tensionCarga=0,tensionRecuperada=0;
-let cortePorCorriente=false;
-let etapaCiclica='CARGA';
-let modoEnCurso='AUTOMATICO';
+ // MEDICIONES REALES
+ // La simulacion fue eliminada.
+ // Hasta integrar y verificar ADS1115 y la etapa
+ // de potencia, no se muestran valores ficticios
+ // ni se permite iniciar una prueba.
+ // ==========================================
 
 function actualizarEstado(txt){
  document.getElementById('estado').innerText=txt;
 }
 
-function iniciarPrueba(){
- if(pruebaIniciada)return;
- let configInicio=leerConfigActual();
- modoEnCurso=(configInicio && configInicio.modoPrueba)?configInicio.modoPrueba:'AUTOMATICO';
- if(modoEnCurso==='MANUAL'){
-  actualizarEstado('MODO MANUAL: ESPERANDO BOTON FISICO. GPIO PENDIENTE DE DEFINIR');
-  return;
- }
- if(modoEnCurso==='CICLICO'){
-  let tCarga=valorConfig('tiempoCargaCiclico');
-  let tPausa=valorConfig('tiempoSinCargaCiclico');
-  if(tCarga===null || tCarga<=0 || tPausa===null || tPausa<=0){
-   actualizarEstado('CONFIGURE TIEMPO DE CARGA Y TIEMPO SIN CARGA');
-   return;
-  }
- }
- let vMin=valorConfig('tensionMin'),vMax=valorConfig('tensionMax');
- // Fuente simulada de 12 V para probar la interfaz.
- const fuenteDemo=12.00;
- if(vMin!==null && fuenteDemo<vMin){
-  actualizarEstado('FUENTE RECHAZADA: TENSION MENOR AL MINIMO');return;
- }
- if(vMax!==null && fuenteDemo>vMax){
-  actualizarEstado('FUENTE RECHAZADA: TENSION MAYOR AL MAXIMO');return;
- }
- if(!habilitado('habPWM')){
-  actualizarEstado('SALIDA PWM DESHABILITADA EN CONFIGURACION');return;
- }
- let duracion=valorConfig('tiempoPruebaConfig');
- let estabilizacion=valorConfig('tiempoEstabilizacion');
- if(modoEnCurso==='AUTOMATICO' && (duracion===null || duracion<=0 || estabilizacion===null || estabilizacion<0)){
-  actualizarEstado('CONFIGURE TIEMPO DE PRUEBA Y ESTABILIZACION');return;
- }
- pruebaIniciada=true;
- cortePorCorriente=false;
- etapaCiclica='CARGA';
- pwmActual=0;
- tensionInicial=fuenteDemo;
- tensionCarga=0;
- tensionRecuperada=0;
- tensionActual=fuenteDemo;
- corrienteActual=0;
- etapaPrueba='CARGA';
- inicioPrueba=Date.now();
- inicioEtapa=inicioPrueba;
- actualizarEstado('TENSION EN VACIO INICIAL: '+tensionInicial.toFixed(2)+' V');
-}
-
-function finalizarPrueba(){
- pruebaIniciada=false;
- pwmActual=0;
- corrienteActual=0;
- tensionActual=tensionRecuperada||tensionActual;
- etapaPrueba='FINALIZADA';
- actualizarEstado('PRUEBA FINALIZADA - VACIO INICIAL '+tensionInicial.toFixed(2)+' V / CARGA '+tensionCarga.toFixed(2)+' V / ESTABILIZADA '+tensionRecuperada.toFixed(2)+' V');
- if(habilitado('habRegistro')){
-  let h=JSON.parse(localStorage.getItem('historialDC')||'[]');
-  h.push({
-   numero:h.length+1,
-   tension:tensionCarga.toFixed(2),
-   corriente:corrientePico.toFixed(3),
-   resultado:cortePorCorriente?'CORTE CORRIENTE':'FINALIZADA'
-  });
-  localStorage.setItem('historialDC',JSON.stringify(h));
-  cargarHistorial();
- }
-}
-
 function actualizar(){
- let ahora=Date.now();
- if(pruebaIniciada && modoEnCurso==='CICLICO'){
-  let tCarga=valorConfig('tiempoCargaCiclico')||1;
-  let tPausa=valorConfig('tiempoSinCargaCiclico')||1;
-  let transcurrido=(ahora-inicioEtapa)/1000;
-  let configCiclo=leerConfigActual();
-  let maxPWM=configCiclo?Number(configCiclo.porcentajePWM||0):0;
-  let maxCorriente=valorConfig('corrienteMax');
-  if(etapaCiclica==='CARGA'){
-   pwmActual=maxPWM;
-   corrienteActual=maxCorriente!==null && maxCorriente>0?maxCorriente:0;
-   corrientePico=Math.max(corrientePico,corrienteActual);
-   tensionActual=Math.max(0,12-(pwmActual/100)*1.2);
-   tensionCarga=tensionActual;
-   actualizarEstado('MODO CICLICO - CARGA');
-   if(transcurrido>=tCarga){
-    pwmActual=0;corrienteActual=0;etapaCiclica='SIN_CARGA';inicioEtapa=ahora;
-    actualizarEstado('MODO CICLICO - SIN CARGA');
-   }
-  }else{
-   pwmActual=0;corrienteActual=0;tensionActual=12;
-   actualizarEstado('MODO CICLICO - SIN CARGA');
-   if(transcurrido>=tPausa){
-    etapaCiclica='CARGA';inicioEtapa=ahora;
-    actualizarEstado('MODO CICLICO - CARGA');
-   }
-  }
- }else if(pruebaIniciada){
-  let transcurrido=(ahora-inicioEtapa)/1000;
-  let duracion=valorConfig('tiempoPruebaConfig')||1;
-  let maxPWM=leerConfigActual()?Number(leerConfigActual().porcentajePWM||0):0;
-  let maxCorriente=valorConfig('corrienteMax');
-  if(etapaPrueba==='CARGA'){
-   let progreso=Math.min(1,transcurrido/duracion);
-   let pwmObjetivo=maxPWM*progreso;
-   if(maxCorriente!==null && maxCorriente>0){
-    // Modelo demostrativo: corriente proporcional al PWM.
-    let corrienteObjetivo=(pwmObjetivo/100)*Math.max(maxCorriente,0.001)*1.15;
-    if(corrienteObjetivo>=maxCorriente){
-     pwmObjetivo=Math.min(pwmObjetivo,(maxCorriente/(Math.max(maxCorriente,0.001)*1.15))*100);
-     cortePorCorriente=true;
-    }
-   }
-   pwmActual=Math.min(maxPWM,pwmObjetivo);
-   corrienteActual=(pwmActual/100)*(maxCorriente!==null && maxCorriente>0?maxCorriente*1.15:1.0);
-   corrientePico=Math.max(corrientePico,corrienteActual);
-   tensionActual=Math.max(0,12-(pwmActual/100)*1.2);
-   tensionCarga=tensionActual;
-   actualizarEstado('TENSION EN CARGA - PWM '+pwmActual.toFixed(1)+' %'+(cortePorCorriente?' - LIMITE DE CORRIENTE ALCANZADO':''));
-   if(progreso>=1 || cortePorCorriente){
-    pwmActual=0;corrienteActual=0;
-    etapaPrueba='ESTABILIZACION';inicioEtapa=ahora;
-    actualizarEstado('TENSION EN VACIO - ESTABILIZACION');
-   }
-  }else if(etapaPrueba==='ESTABILIZACION'){
-   tensionActual=12-(0.15*Math.exp(-transcurrido/1.5));
-   tensionRecuperada=tensionActual;
-   corrienteActual=0;
-   let tEst=valorConfig('tiempoEstabilizacion')||0;
-   if(transcurrido>=tEst)finalizarPrueba();
-  }
- }else if(!pruebaIniciada && etapaPrueba==='ESPERANDO'){
-  tensionActual=0;corrienteActual=0;
- }
- document.getElementById('v').innerText=tensionActual.toFixed(2);
- document.getElementById('a').innerText=corrienteActual.toFixed(3);
- datosV.push(tensionActual);datosA.push(corrienteActual);
- datosV.shift();datosA.shift();
- let cMin=valorConfig('corrienteMin');
+ document.getElementById('v').innerText='--.--';
+ document.getElementById('a').innerText='--.---';
+ datosV.fill(0);
+ datosA.fill(0);
  dibujarGrafico('graficoV',datosV,escalaVoltaje(),'#00ff91','TIEMPO',null);
- dibujarGrafico('graficoA',datosA,escalaCorriente(),'#00d9ff','TIEMPO',cMin);
+ dibujarGrafico('graficoA',datosA,escalaCorriente(),'#00d9ff','TIEMPO',null);
 }
 
-setInterval(actualizar,100);
 actualizar();
+
 
 // ==========================================
 // ACCIONES DE PRUEBA
 // ==========================================
 
 function accion(nombre){
- if(nombre==='INICIO'){iniciarPrueba();return;}
- if(nombre==='RESET'){
-  pruebaIniciada=false;etapaPrueba='ESPERANDO';pwmActual=0;
-  tensionActual=0;corrienteActual=0;tensionInicial=0;
-  tensionCarga=0;tensionRecuperada=0;cortePorCorriente=false;
-  actualizarEstado('SISTEMA REINICIADO');return;
- }
- if(nombre==='FIN'){
-  if(!pruebaIniciada){actualizarEstado('NO HAY PRUEBA EN CURSO');return;}
-  pwmActual=0;corrienteActual=0;
-  tensionRecuperada=tensionActual;
-  finalizarPrueba();
- }
+ actualizarEstado('PRUEBA NO DISPONIBLE: FALTA INTEGRAR MEDICION REAL Y CONTROL DE POTENCIA');
 }
 
 // ==========================================
