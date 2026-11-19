@@ -1,0 +1,197 @@
+PROBADOR DC
+DEFINICION DE FUNCIONAMIENTO DEL HARDWARE
+Proyecto: PROBADOR_DC_WEB
+Rama: pcb-gpio-map-20261118
+Documento de referencia funcional
+Fecha: 19/11/2026
+
+1. OBJETIVO
+
+El PROBADOR DC verifica fuentes de alimentacion midiendo su tension y la corriente entregada durante una prueba con carga controlada por el equipo.
+
+La plataforma actual es un ESP32 clasico DevKit V1 con modulo ESP32-WROOM-32, de 30 pines.
+
+Este documento registra el funcionamiento acordado. No es un esquema electrico de fabricacion ni reemplaza la verificacion del cableado fisico.
+
+2. PRINCIPIO DE FUNCIONAMIENTO DE LA CARGA
+
+Se conserva el circuito sencillo que el usuario ya habia probado y comprobado en la etapa anterior con ESP32-C3.
+
+La carga se conecta y desconecta mediante un MOSFET de potencia gobernado por un circuito totem pole.
+
+No se agrega amplificador operacional.
+No se define una regulacion analogica continua de corriente.
+El MOSFET trabaja como interruptor de la carga durante las etapas de prueba.
+
+Funciones:
+- ESP32: ordena iniciar o detener la carga y supervisa las mediciones.
+- Totem pole: adapta y gobierna la excitacion de compuerta del MOSFET.
+- MOSFET: conecta o desconecta la carga de prueba.
+- Shunt: permite medir la corriente que circula por la carga.
+- ADS1115: mide la tension de la fuente y la caida de tension del shunt.
+- Pantalla e interfaz: muestran el estado y los resultados.
+
+3. MOSFET DE POTENCIA
+
+El IRFB4227 fue elegido como candidato de reemplazo y el usuario indico que lo encargaria.
+
+Datos nominales de referencia del componente:
+- Canal N.
+- VDS maximo: 200 V.
+- Encapsulado TO-220.
+- RDS(on) especificada con VGS de 10 V.
+
+IMPORTANTE:
+El IRFB4227 queda registrado como candidato, no como componente ya probado en este equipo.
+Antes de conectarlo a fuentes de hasta 48 V hay que verificar su area segura de operacion (SOA), disipacion, temperatura, disipador, excitacion real de compuerta y protecciones frente a transitorios.
+La capacidad nominal de tension o corriente por si sola no garantiza que el MOSFET pueda disipar la potencia requerida durante una prueba.
+
+4. CONTROL DEL TOTEM POLE
+
+La etapa de potencia se gobierna desde GPIO32 del ESP32 DevKit V1.
+
+Polaridad definida para el proyecto:
+- GPIO32 en LOW: etapa de potencia ACTIVADA.
+- GPIO32 en HIGH: etapa de potencia DESACTIVADA.
+
+Estado seguro:
+- Al arrancar, detener una prueba o detectar un fallo, GPIO32 debe quedar en HIGH para mantener la carga desactivada.
+
+Se conserva el concepto de totem pole del circuito probado anteriormente. No se incorpora un operacional ni se cambia el principio de funcionamiento.
+
+La composicion exacta, patillaje, resistencias y conexionado fisico del totem pole deben cotejarse con el circuito original probado antes de fabricar o energizar la PCB. Este documento no inventa esos detalles.
+
+5. SHUNT Y MEDICION DE CORRIENTE
+
+Shunt definido:
+- Resistencia: 0,1 ohm.
+- Potencia nominal: 10 W.
+- Ubicacion: entre SOURCE del MOSFET y GND (medicion por lado bajo).
+- ADS1115: mide diferencialmente la caida entre sus entradas A2 y A3.
+
+Asignacion:
+- ADS1115 A2: extremo del shunt hacia SOURCE del MOSFET.
+- ADS1115 A3: extremo del shunt hacia GND.
+
+Se recomienda llevar las pistas/cables de medicion del shunt por separado de los conductores principales de corriente (conexion Kelvin) para reducir errores.
+
+A 5 A, la caida teorica en el shunt de 0,1 ohm es 0,5 V y su disipacion teorica es 2,5 W. La corriente maxima admisible del conjunto debe definirse considerando el shunt, pistas, conectores, MOSFET, disipador y SOA.
+
+6. MEDICION DE TENSION DE FUENTE
+
+El ADS1115 A0 mide la tension de la fuente mediante un divisor resistivo.
+
+- ADS1115 A0: entrada de medicion de tension.
+- Valores de las resistencias del divisor: pendientes de calcular y validar.
+- Calibracion: pendiente de realizar con mediciones reales.
+
+ADS1115 A1 queda reservado.
+
+La idea de admitir fuentes de hasta 48 V se incorpora como requisito a evaluar en el diseño. El divisor, proteccion de entrada, limites del ADS1115 y margenes de seguridad deben dimensionarse y verificarse para ese maximo antes de conectar una fuente de 48 V.
+
+7. CONVERTIDOR ADS1115 E I2C
+
+Direccion I2C prevista: 0x48 (todavia debe verificarse en el hardware).
+
+Bus compartido por pantalla y ADS1115:
+- SDA: GPIO21.
+- SCL: GPIO22.
+
+Asignacion de canales ADS1115:
+- A0: tension de fuente por divisor resistivo.
+- A1: reserva.
+- A2: extremo del shunt hacia SOURCE.
+- A3: extremo del shunt hacia GND.
+
+8. PANTALLA
+
+Pantalla definida:
+- OLED SSD1307 monocromatica.
+- Resolucion: 128 x 64.
+- Interfaz: I2C.
+- SDA GPIO21.
+- SCL GPIO22.
+
+La pantalla comparte el bus I2C con el ADS1115.
+
+9. PLACA Y ASIGNACION DE GPIO
+
+Placa: ESP32 DevKit V1, ESP32-WROOM-32, 30 pines.
+
+Pulsadores fisicos, todos conectados entre GPIO y GND, configurados con INPUT_PULLUP y activos en LOW:
+- ARRIBA: GPIO13.
+- ABAJO: GPIO14.
+- IZQUIERDA: GPIO16.
+- DERECHA: GPIO17.
+- ENTER: GPIO25.
+- STOP: GPIO26.
+- START: GPIO27.
+
+Etapa totem pole:
+- Control: GPIO32.
+- LOW activa la etapa.
+- HIGH desactiva la etapa.
+
+microSD UNIBOT por SPI:
+- CS: GPIO4.
+- SCK: GPIO18.
+- MISO: GPIO19.
+- MOSI: GPIO23.
+
+GPIO de reserva:
+- GPIO5.
+- GPIO33.
+
+Evitar GPIO6 a GPIO11 porque se utilizan para la memoria Flash.
+Preferentemente evitar GPIO0, GPIO2, GPIO12 y GPIO15 por su funcion de strapping.
+GPIO34 a GPIO39 son solo entradas y no disponen de pullups internos.
+
+La alimentacion admitida por el modulo microSD debe verificarse segun la serigrafia y documentacion del modulo concreto.
+
+10. SECUENCIA FUNCIONAL DE PRUEBA
+
+La prueba automatica contempla tres etapas:
+1. Medicion inicial sin carga.
+2. Medicion bajo carga, activando el MOSFET mediante el totem pole.
+3. Medicion final sin carga, desactivando el MOSFET.
+
+La duracion de cada una de las tres etapas debe ser configurable desde la configuracion del supervisor; no se fijan tiempos inalterables en este documento.
+
+Durante la prueba se registran tension y corriente reales. No se deben generar valores ficticios ni simulados.
+
+11. AUTORIZACION DE LA FUENTE
+
+La referencia de tension es configurada por el supervisor: tension autorizada y tolerancia correspondiente.
+
+El equipo mide la fuente conectada y solo habilita el test si la tension medida esta dentro del rango autorizado.
+
+El operario no ingresa ni modifica la tension/corriente de referencia; inicia la prueba mediante el control previsto.
+
+Una fuente fuera del rango autorizado no inicia el test, no consume numero correlativo y no debe activar la carga.
+
+La ampliacion del rango de fuentes hasta 48 V requiere completar y validar el divisor de tension, protecciones y calibracion antes de habilitar ese rango en el equipo.
+
+12. SEGURIDAD DE LA ETAPA DE POTENCIA
+
+- La carga debe permanecer desactivada durante el arranque.
+- GPIO32 debe quedar en HIGH al detener o abortar una prueba y ante cualquier fallo.
+- Una fuente fuera del rango autorizado no debe activar el MOSFET.
+- La medicion debe ser real; no se permiten lecturas simuladas.
+- Deben verificarse disipacion y SOA del MOSFET para cada combinacion de tension, corriente y duracion.
+- Deben dimensionarse pistas, cables, conectores, shunt y disipador para la corriente y potencia que se autoricen.
+- No conectar una fuente de 48 V hasta validar divisor, protecciones, aislamiento/limites de medicion y etapa de potencia.
+
+13. PENDIENTES ANTES DE CERRAR EL HARDWARE
+
+1. Comparar el circuito fisico del totem pole con el montaje anterior probado con ESP32-C3, confirmando transistores, patillaje, resistencias y alimentacion.
+2. Probar el IRFB4227 recibido y verificar su excitacion de compuerta con el totem pole.
+3. Comprobar SOA y disipacion para las condiciones reales de ensayo, especialmente a 48 V.
+4. Definir corriente maxima y duracion maxima de cada etapa de carga.
+5. Calcular y validar el divisor resistivo de A0 para el rango final.
+6. Verificar direccion I2C del ADS1115 y funcionamiento de la pantalla SSD1307.
+7. Verificar alimentacion y funcionamiento del modulo microSD concreto.
+8. Realizar pruebas de calibracion y seguridad con fuentes limitadas antes de habilitar el rango ampliado.
+
+FIN DEL DOCUMENTO
+
+Este archivo registra las decisiones funcionales conocidas. Cuando se recupere el esquema o montaje original del ESP32-C3, se deberan completar los detalles fisicos que aqui se indican como pendientes, sin cambiar el principio de funcionamiento ya probado.
